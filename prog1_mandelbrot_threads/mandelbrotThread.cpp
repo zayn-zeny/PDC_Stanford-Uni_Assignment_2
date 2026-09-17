@@ -32,15 +32,13 @@ void workerThreadStart(WorkerArgs * const args) {
 
     double startTime = CycleTimer::currentSeconds();
 
-    int rowsPerThread = args->height / args->numThreads;
-    int startRow = args->threadId * rowsPerThread;
-    int numRows = (args->threadId == args->numThreads - 1) ? (args->height - startRow) : rowsPerThread;
-
-    mandelbrotSerial(args->x0, args->y0, args->x1, args->y1,
-                     args->width, args->height,
-                     startRow, numRows,
-                     args->maxIterations,
-                     args->output);
+    for (unsigned int i = args->threadId; i < args->height; i += args->numThreads) {
+        mandelbrotSerial(args->x0, args->y0, args->x1, args->y1,
+                         args->width, args->height,
+                         i, 1,
+                         args->maxIterations,
+                         args->output);
+    }
 
     double endTime = CycleTimer::currentSeconds();
     printf("Thread %d time: %.3f ms\n", args->threadId, (endTime - startTime) * 1000);
