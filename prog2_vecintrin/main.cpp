@@ -242,14 +242,45 @@ void clampedExpSerial(float* values, int* exponents, float* output, int N) {
 
 void clampedExpVector(float* values, int* exponents, float* output, int N) {
 
-  //
-  // CS149 STUDENTS TODO: Implement your vectorized version of
-  // clampedExpSerial() here.
-  //
-  // Your solution should work for any value of
-  // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
-  //
-  
+  __cs149_vec_float x, result;
+  __cs149_vec_int y, count;
+  __cs149_vec_float ones = _cs149_vset_float(1.f);
+  __cs149_vec_float max_val = _cs149_vset_float(9.999999f);
+  __cs149_vec_int zeros_int = _cs149_vset_int(0);
+  __cs149_vec_int ones_int = _cs149_vset_int(1);
+
+  for (int i = 0; i < N; i += VECTOR_WIDTH) {
+    int validLanes = std::min(VECTOR_WIDTH, N - i);
+    __cs149_mask maskAll = _cs149_init_ones(validLanes);
+    __cs149_mask maskYEq0, maskYNot0;
+
+    _cs149_vload_float(x, values + i, maskAll);
+    _cs149_vload_int(y, exponents + i, maskAll);
+
+    _cs149_veq_int(maskYEq0, y, zeros_int, maskAll);
+    _cs149_vmove_float(result, ones, maskYEq0);
+
+    maskYNot0 = _cs149_mask_not(maskYEq0);
+    maskYNot0 = _cs149_mask_and(maskYNot0, maskAll);
+
+    _cs149_vmove_float(result, x, maskYNot0);
+    _cs149_vsub_int(count, y, ones_int, maskYNot0);
+
+    __cs149_mask maskCountGt0 = _cs149_init_ones(0);
+    _cs149_vgt_int(maskCountGt0, count, zeros_int, maskYNot0);
+
+    while (_cs149_cntbits(maskCountGt0) > 0) {
+      _cs149_vmult_float(result, result, x, maskCountGt0);
+      _cs149_vsub_int(count, count, ones_int, maskCountGt0);
+      _cs149_vgt_int(maskCountGt0, count, zeros_int, maskYNot0);
+    }
+
+    __cs149_mask maskResultGtMax = _cs149_init_ones(0);
+    _cs149_vgt_float(maskResultGtMax, result, max_val, maskYNot0);
+    _cs149_vmove_float(result, max_val, maskResultGtMax);
+
+    _cs149_vstore_float(output + i, result, maskAll);
+  }
 }
 
 // returns the sum of all elements in values
@@ -267,14 +298,20 @@ float arraySumSerial(float* values, int N) {
 // You can assume VECTOR_WIDTH is a power of 2
 float arraySumVector(float* values, int N) {
   
-  //
-  // CS149 STUDENTS TODO: Implement your vectorized version of arraySumSerial here
-  //
-  
-  for (int i=0; i<N; i+=VECTOR_WIDTH) {
+  __cs149_vec_float total_sum = _cs149_vset_float(0.f);
+  __cs149_mask maskAll = _cs149_init_ones();
 
+  for (int i=0; i<N; i+=VECTOR_WIDTH) {
+    __cs149_vec_float x;
+    _cs149_vload_float(x, values + i, maskAll);
+    _cs149_vadd_float(total_sum, total_sum, x, maskAll);
   }
 
-  return 0.0;
+  for (int i = 1; i < VECTOR_WIDTH; i *= 2) {
+    _cs149_hadd_float(total_sum, total_sum);
+    _cs149_interleave_float(total_sum, total_sum);
+  }
+
+  return total_sum.value[0];
 }
 
