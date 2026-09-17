@@ -35,7 +35,6 @@ export void mandelbrot_ispc(uniform float x0, uniform float y0,
     }
 }
 
-// slightly different kernel to support tasking
 task void mandelbrot_ispc_task(uniform float x0, uniform float y0, 
                                uniform float x1, uniform float y1,
                                uniform int width, uniform int height,
@@ -43,9 +42,6 @@ task void mandelbrot_ispc_task(uniform float x0, uniform float y0,
                                uniform int maxIterations,
                                uniform int output[])
 {
-
-    // taskIndex is an ISPC built-in
-    
     uniform int ystart = taskIndex * rowsPerTask;
     uniform int yend = ystart + rowsPerTask;
     
@@ -68,10 +64,11 @@ export void mandelbrot_ispc_withtasks(uniform float x0, uniform float y0,
                                       uniform int output[])
 {
 
-    uniform int rowsPerTask = height / 2;
+    uniform int numTasks = 80;
+    uniform int rowsPerTask = height / numTasks;
 
-    // create 2 tasks
-    launch[2] mandelbrot_ispc_task(x0, y0, x1, y1,
+    // create 60 tasks
+    launch[numTasks] mandelbrot_ispc_task(x0, y0, x1, y1,
                                      width, height,
                                      rowsPerTask,
                                      maxIterations,
