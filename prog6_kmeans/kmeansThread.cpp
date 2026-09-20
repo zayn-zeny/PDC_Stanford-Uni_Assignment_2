@@ -64,28 +64,47 @@ double dist(double *x, double *y, int nDim) {
 /**
  * Assigns each data point to its "closest" cluster centroid.
  */
-void computeAssignments(WorkerArgs *const args) {
-  double *minDist = new double[args->M];
+void computeAssignmentsWorker(WorkerArgs *const args, int startM, int endM) {
+  double *minDist = new double[endM - startM];
   
   // Initialize arrays
-  for (int m =0; m < args->M; m++) {
-    minDist[m] = 1e30;
+  for (int m = startM; m < endM; m++) {
+    minDist[m - startM] = 1e30;
     args->clusterAssignments[m] = -1;
   }
 
   // Assign datapoints to closest centroids
   for (int k = args->start; k < args->end; k++) {
-    for (int m = 0; m < args->M; m++) {
+    for (int m = startM; m < endM; m++) {
       double d = dist(&args->data[m * args->N],
                       &args->clusterCentroids[k * args->N], args->N);
-      if (d < minDist[m]) {
-        minDist[m] = d;
+      if (d < minDist[m - startM]) {
+        minDist[m - startM] = d;
         args->clusterAssignments[m] = k;
       }
     }
   }
 
   delete[] minDist;
+}
+
+/**
+ * Assigns each data point to its "closest" cluster centroid.
+ */
+void computeAssignments(WorkerArgs *const args) {
+  int numThreads = 8;
+  std::thread threads[8];
+  int chunkSize = args->M / numThreads;
+  
+  for (int i = 0; i < numThreads; i++) {
+    int startM = i * chunkSize;
+    int endM = (i == numThreads - 1) ? args->M : startM + chunkSize;
+    threads[i] = std::thread(computeAssignmentsWorker, args, startM, endM);
+  }
+  
+  for (int i = 0; i < numThreads; i++) {
+    threads[i].join();
+  }
 }
 
 /**
